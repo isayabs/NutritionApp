@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://20.151.170.182:8000";
 
 function ChartImage({ endpoint, title }) {
   const [image, setImage] = useState(null);
