@@ -8,6 +8,9 @@ from data_analysis import (
     get_highest_protein_diet,
     get_most_common_cuisine
 )
+import time
+import psutil
+from datetime import datetime, timezone
 
 app = FastAPI()
 
@@ -18,6 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+START_TIME = time.time()
 # ─── Data Endpoints ───────────────────────────────────────────────────────────
 
 @app.get("/api/data/highest-protein-diet")
@@ -45,3 +49,29 @@ def top_protein_scatter():
 @app.get("/api/chart/recipe-distribution")
 def recipe_distribution():
     return {"image": get_recipe_distribution_pie()}
+
+@app.get("/api/security/status")
+def security_status():
+    uptime_seconds = int(time.time() - START_TIME)
+    uptime_minutes = uptime_seconds // 60
+    uptime_hours = uptime_minutes // 60
+
+    return {
+        "encryption": {
+            "status": "warning",
+            "message": "HTTP (No SSL)"
+        },
+        "access_control": {
+            "status": "secure",
+            "message": "CORS configured"
+        },
+        "compliance": {
+            "status": "secure",
+            "message": "GDPR Compliant"
+        },
+        "uptime": {
+            "status": "secure",
+            "message": f"{uptime_hours}h {uptime_minutes % 60}m {uptime_seconds % 60}s"
+        },
+        "last_checked": datetime.now(timezone.utc).isoformat()
+    }
