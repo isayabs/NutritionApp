@@ -68,7 +68,7 @@ export default function Filters() {
   return (
     <section className="my-6 space-y-4">
       <h2 className="text-2xl font-semibold mt-5 mb-4">
-        Filters and data interaction
+        Filters and Data Interaction
       </h2>
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <input
