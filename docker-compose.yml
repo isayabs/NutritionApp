@@ -5,15 +5,19 @@ services:
     build: ./Backend
     ports:
       - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   frontend:
     build:
       context: ./Frontend
       args:
-        NEXT_PUBLIC_API_URL: http://20.151.170.182:8000
+        NEXT_PUBLIC_API_URL: http://4.206.200.150:8000
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://20.151.170.182:8000
+      - NEXT_PUBLIC_API_URL=http://4.206.200.150:8000
     depends_on:
       - backend

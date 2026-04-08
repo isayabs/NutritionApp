@@ -9,29 +9,22 @@ import CloudCleanup from "./components/CloudCleanup";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100 text-gray-900">
+    <div className="min-h-screen flex flex-col bg-gray-100 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <Header />
-
-      <main className="flex-1 w-full px-12 py-6">
-        <h2 className="text-2xl font-semibold mb-4">
-          Explore Nutritional Insights
-        </h2>
-
-        <VisualizationCards />
-
-        <div className="mt-6">
+      <div className="mx-auto px-auto px-6">
+        <main className="container mx-auto-md p-6">
+          <h2 className="text-2xl font-semibold mb-4">
+            Explore Nutritional Insights
+          </h2>
+          <VisualizationCards />
           <Filters />
-        </div>
-
-        <SecurityCompliance />
-        <OAuth2FA />
-        <CloudCleanup />
-
-        <section className="mt-6">
-          <h2 className="text-2xl font-semibold mb-4">Pagination</h2>
+          <SecurityCompliance />
+          <OAuth2FA />
+          <CloudCleanup />
+          <h2 className="text-2xl font-semibold mt-5 mb-4">Pagination</h2>
           <Pagination />
-        </section>
-      </main>
+        </main>
+      </div>
 
       <Footer />
     </div>

@@ -3,7 +3,7 @@ export default function OAuth2FA() {
     <section className="mt-8">
       <h2 className="text-2xl font-semibold mb-4">OAuth & 2FA Integration</h2>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white rounded-lg shadow p-4  dark:bg-gray-900 dark:text-gray-100">
         <p className="font-semibold mb-3">Secure Login</p>
 
         <div className="flex gap-3 flex-wrap mb-4">
