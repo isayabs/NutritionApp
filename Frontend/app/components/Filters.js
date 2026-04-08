@@ -2,7 +2,7 @@
 "use client";
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function Filters() {
   const [diet, setDiet] = useState("All Diet Types");
@@ -33,7 +33,7 @@ export default function Filters() {
   const handleGetRecipes = () => {
     setLoading(true);
     setResults(null);
-    fetch(`${API_URL}/api/data/most-common-cuisine${buildQuery()}`)
+    fetch(`${API_URL}/api/data/recipes${buildQuery()}`)
       .then(res => res.json())
       .then(json => {
         setResults({ type: "recipes", data: json.data });
@@ -128,26 +128,34 @@ export default function Filters() {
       )}
 
       {results?.type === "recipes" && (
-        <div className="mt-4 rounded-lg bg-white p-4 text-gray-900 shadow dark:bg-gray-900 dark:text-gray-100">
-          <h3 className="mb-2 text-lg font-semibold">Most Common Cuisine per Diet</h3>
+        <div className="mt-4 rounded-lg bg-white p-4 text-gray-900 shadow dark:bg-gray-900 dark:text-gray-100 max-h-[500px] overflow-auto">
+          <h3 className="mb-2 text-lg font-semibold">Recipes</h3>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left dark:border-gray-700">
                 <th className="py-2">Diet Type</th>
-                <th className="py-2">Most Common Cuisine</th>
+                <th className="py-2">Recipe Name</th>
+                <th className="py-2">Cuisine</th>
+                <th className="py-2">Protein</th>
+                <th className="py-2">Carbs</th>
+                <th className="py-2">Fat</th>
               </tr>
             </thead>
             <tbody>
-              {filteredRecipes.length > 0 ? (
-                filteredRecipes.map((row, i) => (
+              {results.data.length > 0 ? (
+                results.data.map((row, i) => (
                   <tr key={i} className="border-b border-gray-200 dark:border-gray-700">
                     <td className="py-2">{row.Diet_type}</td>
-                    <td className="py-2">{row.Most_common_cuisine}</td>
+                    <td className="py-2">{row.Recipe_name}</td>
+                    <td className="py-2">{row.Cuisine_type}</td>
+                    <td className="py-2">{row["Protein(g)"]}</td>
+                    <td className="py-2">{row["Carbs(g)"]}</td>
+                    <td className="py-2">{row["Fat(g)"]}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={2} className="py-4 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={6} className="py-4 text-center text-gray-500 dark:text-gray-400">
                     No results match your search.
                   </td>
                 </tr>
