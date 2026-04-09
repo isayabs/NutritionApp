@@ -16,6 +16,7 @@ import psutil
 from datetime import datetime, timezone
 from azure.identity import ManagedIdentityCredential
 from azure.mgmt.storage import StorageManagementClient
+from auth_routes import router as auth_router
 
 #Helper functions-------------------------------------------------
 def evaluate_encryption(is_blob_encrypted, is_file_encrypted, key_type, https_only, key_vault_uri):
@@ -157,6 +158,8 @@ def generate_gdpr_message(checks, processes_personal_data):
     return " · ".join(missing)
 
 app = FastAPI()
+
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
