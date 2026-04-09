@@ -6,7 +6,10 @@ from data_analysis import (
     get_top_protein_scatter,
     get_recipe_distribution_pie,
     get_highest_protein_diet,
-    get_most_common_cuisine
+    get_most_common_cuisine,
+    get_recipes,
+    get_recipe_list,
+    get_recipe_clusters,
 )
 import time
 import psutil
@@ -127,4 +130,139 @@ def evaluate_gdpr(encryption_status, access_control):
         "score": f"{passed}/{total}",
         "checks": checks,
         "message": generate_gdpr_message(checks, processes_personal_data)
+    }
+
+
+def generate_gdpr_message(checks, processes_personal_data):
+    if not processes_personal_data:
+        return "No personal data processed. Strong GDPR readiness based on infrastructure controls."
+
+    missing = []
+
+    if not checks["data_encrypted"]:
+        missing.append("Encryption not properly configured")
+
+    if not checks["access_restricted"]:
+        missing.append("Network access not restricted")
+
+    if not checks["public_access_disabled"]:
+        missing.append("Public access is enabled")
+
+    if not checks["secure_transport"]:
+        missing.append("Secure transport (TLS) not enforced")
+
+    if not missing:
+        return "Strong GDPR readiness based on infrastructure controls"
+
+    return " · ".join(missing)
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://4.206.200.150:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+START_TIME = time.time()
+SUBSCRIPTION_ID = "eba634ec-0ab9-49b5-8ebc-a9747f14a701"
+RESOURCE_GROUP = "nutrition-app-rg"
+STORAGE_ACCOUNT = "nutritionappstorage01"
+# ─── Data Endpoints ───────────────────────────────────────────────────────────
+
+@app.get("/api/data/nutritional-insights")
+def nutritional_insights(diet: str = None, search: str = None, limit: int = 20):
+    return {"data": get_recipes(diet=diet, search=search, limit=limit)}
+
+
+@app.get("/api/data/recipes")
+def recipes(diet: str = None, search: str = None, limit: int = 20):
+    return {"data": get_recipe_list(diet=diet, search=search, limit=limit)}
+
+
+@app.get("/api/data/clusters")
+def clusters(diet: str = None, search: str = None, limit: int = 50):
+    return {"data": get_recipe_clusters(diet=diet, search=search, limit=limit)}
+
+# ─── Chart Endpoints ──────────────────────────────────────────────────────────
+
+@app.get("/api/chart/protein-bar")
+def protein_bar():
+    return {"image": get_avg_protein_bar()}
+
+@app.get("/api/chart/macros-heatmap")
+def macros_heatmap():
+    return {"image": get_macros_heatmap()}
+
+@app.get("/api/chart/top-protein-scatter")
+def top_protein_scatter():
+    return {"image": get_top_protein_scatter()}
+
+@app.get("/api/chart/recipe-distribution")
+def recipe_distribution():
+    return {"image": get_recipe_distribution_pie()}
+
+@app.get("/api/security/status")
+def security_status():
+    uptime_seconds = int(time.time() - START_TIME)
+    uptime_minutes = uptime_seconds // 60
+    uptime_hours = uptime_minutes // 60
+
+    # Query real encryption status from Azure
+    try:
+        credential = ManagedIdentityCredential()
+        storage_client = StorageManagementClient(credential, SUBSCRIPTION_ID)
+        account = storage_client.storage_accounts.get_properties(RESOURCE_GROUP, STORAGE_ACCOUNT)
+        
+        encryption = account.encryption
+        is_blob_encrypted = encryption.services.blob.enabled
+        is_file_encrypted = encryption.services.file.enabled
+        key_type = "CMK" if encryption.key_source == "Microsoft.Keyvault" else "Microsoft-managed"
+        https_only = account.enable_https_traffic_only
+        key_vault_uri = encryption.key_vault_properties.key_vault_uri if encryption.key_vault_properties else None
+
+        access_control = evaluate_access_control(
+            account.allow_blob_public_access,
+            account.network_rule_set.default_action,
+            account.minimum_tls_version
+        )
+
+        encryption_status = evaluate_encryption(
+            is_blob_encrypted,
+            is_file_encrypted,
+            key_type,
+            https_only,
+            key_vault_uri
+        )
+
+        gdpr_compliance = evaluate_gdpr(
+            encryption_status["status"],
+            access_control
+        )
+    except Exception as e:
+        encryption_status = {
+            "status": "warning",
+            "message": "Could not retrieve encryption status"
+        }
+
+        access_control = {
+            "status": "warning",
+            "message": "Could not retrieve access control configuration"
+        }
+
+        gdpr_compliance = {
+            "status": "warning",
+            "message": "Could not retrieve GDPR compliance information"
+        }
+
+    return {
+        "encryption": encryption_status,
+        "access_control": access_control,
+        "compliance": gdpr_compliance,
+        "uptime": {
+            "status": "secure",
+            "message": f"{uptime_hours}h {uptime_minutes % 60}m {uptime_seconds % 60}s"
+        },
+        "last_checked": datetime.now(timezone.utc).isoformat()
     }

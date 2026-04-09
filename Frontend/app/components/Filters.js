@@ -10,10 +10,11 @@ export default function Filters() {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const buildQuery = () => {
+  const buildQuery = (limit = 20) => {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
     if (diet !== "All Diet Types") params.set("diet", diet);
+    params.set("limit", String(limit));
     const qs = params.toString();
     return qs ? `?${qs}` : "";
   };
@@ -21,55 +22,54 @@ export default function Filters() {
   const handleGetInsights = () => {
     setLoading(true);
     setResults(null);
-    fetch(`${API_URL}/api/data/highest-protein-diet${buildQuery()}`)
-      .then(res => res.json())
-      .then(json => {
-        setResults({ type: "insights", data: json.data });
+    fetch(`${API_URL}/api/data/nutritional-insights${buildQuery(20)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        setResults({ type: "insights", data: json.data || [] });
         setLoading(false);
       })
-      .catch(() => { setResults({ type: "error" }); setLoading(false); });
+      .catch(() => {
+        setResults({ type: "error" });
+        setLoading(false);
+      });
   };
 
   const handleGetRecipes = () => {
     setLoading(true);
     setResults(null);
-    fetch(`${API_URL}/api/data/recipes${buildQuery()}`)
-      .then(res => res.json())
-      .then(json => {
-        setResults({ type: "recipes", data: json.data });
+    fetch(`${API_URL}/api/data/recipes${buildQuery(20)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        setResults({ type: "recipes", data: json.data || [] });
         setLoading(false);
       })
-      .catch(() => { setResults({ type: "error" }); setLoading(false); });
+      .catch(() => {
+        setResults({ type: "error" });
+        setLoading(false);
+      });
   };
 
   const handleGetClusters = () => {
     setLoading(true);
     setResults(null);
-    fetch(`${API_URL}/api/chart/recipe-distribution${buildQuery()}`)
-      .then(res => res.json())
-      .then(json => {
-        setResults({ type: "clusters", image: json.image });
+    fetch(`${API_URL}/api/data/clusters${buildQuery(50)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        setResults({ type: "clusters", data: json.data || {} });
         setLoading(false);
       })
-      .catch(() => { setResults({ type: "error" }); setLoading(false); });
+      .catch(() => {
+        setResults({ type: "error" });
+        setLoading(false);
+      });
   };
-
-  const filteredRecipes = results?.type === "recipes"
-    ? results.data.filter(row => {
-        const term = search.trim().toLowerCase();
-        const matchesDiet = diet === "All Diet Types" || row.Diet_type?.toLowerCase() === diet.toLowerCase();
-        const matchesSearch = !term ||
-          row.Diet_type?.toLowerCase().includes(term) ||
-          row.Most_common_cuisine?.toLowerCase().includes(term);
-        return matchesDiet && matchesSearch;
-      })
-    : [];
 
   return (
     <section className="my-6 space-y-4">
       <h2 className="text-2xl font-semibold mt-5 mb-4">
         Filters and Data Interaction
       </h2>
+
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <input
           type="text"
@@ -77,33 +77,39 @@ export default function Filters() {
           className="w-full rounded border border-gray-300 bg-white p-2 text-gray-900 placeholder:text-gray-500 sm:w-auto dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-400"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && results) handleGetRecipes(); }}
         />
+
         <select
           value={diet}
           onChange={(e) => setDiet(e.target.value)}
           className="rounded border border-gray-300 bg-white px-4 py-3 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
         >
           <option>All Diet Types</option>
-          <option>Vegan</option>
+          <option>Paleo</option>
           <option>Keto</option>
+          <option>Vegan</option>
+          <option>Mediterranean</option>
+          <option>Dash</option>
         </select>
       </div>
 
       <h2 className="text-2xl font-semibold mt-5 mb-4">API Data Interaction</h2>
-      <div className="flex gap-4">
+
+      <div className="flex gap-4 flex-wrap">
         <button
           onClick={handleGetInsights}
           className="bg-blue-600 text-white px-4 py-2 rounded"
         >
           Get Nutritional Insights
         </button>
+
         <button
           onClick={handleGetRecipes}
           className="bg-green-600 text-white px-4 py-2 rounded"
         >
           Get Recipes
         </button>
+
         <button
           onClick={handleGetClusters}
           className="bg-purple-600 text-white px-4 py-2 rounded"
@@ -112,24 +118,17 @@ export default function Filters() {
         </button>
       </div>
 
-      {/* Results display */}
-      {loading && <p className="mt-4 text-gray-500 dark:text-gray-400">Loading...</p>}
+      {loading && (
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading...</p>
+      )}
 
       {results?.type === "error" && (
-        <p className="text-red-500 mt-4">⚠ Failed to fetch. Is the backend running?</p>
+        <p className="text-red-500 mt-4">Failed to fetch. Is the backend running?</p>
       )}
 
       {results?.type === "insights" && (
-        <div className="mt-4 rounded-lg bg-white p-4 text-gray-900 shadow dark:bg-gray-900 dark:text-gray-100">
-          <h3 className="mb-2 text-lg font-semibold">Nutritional Insights</h3>
-          <p className="text-gray-700 dark:text-gray-300">Highest protein diet: <strong>{results.data.diet_type}</strong></p>
-          <p className="text-gray-700 dark:text-gray-300">Average protein: <strong>{results.data.avg_protein}g</strong></p>
-        </div>
-      )}
-
-      {results?.type === "recipes" && (
         <div className="mt-4 rounded-lg bg-white p-4 text-gray-900 shadow dark:bg-gray-900 dark:text-gray-100 max-h-[500px] overflow-auto">
-          <h3 className="mb-2 text-lg font-semibold">Recipes</h3>
+          <h3 className="mb-2 text-lg font-semibold">Nutritional Insights</h3>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left dark:border-gray-700">
@@ -156,7 +155,39 @@ export default function Filters() {
               ) : (
                 <tr>
                   <td colSpan={6} className="py-4 text-center text-gray-500 dark:text-gray-400">
-                    No results match your search.
+                    No nutritional insights found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {results?.type === "recipes" && (
+        <div className="mt-4 rounded-lg bg-white p-4 text-gray-900 shadow dark:bg-gray-900 dark:text-gray-100 max-h-[500px] overflow-auto">
+          <h3 className="mb-2 text-lg font-semibold">Recipes</h3>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-left dark:border-gray-700">
+                <th className="py-2">Diet Type</th>
+                <th className="py-2">Recipe Name</th>
+                <th className="py-2">Cuisine</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.data.length > 0 ? (
+                results.data.map((row, i) => (
+                  <tr key={i} className="border-b border-gray-200 dark:border-gray-700">
+                    <td className="py-2">{row.Diet_type}</td>
+                    <td className="py-2">{row.Recipe_name}</td>
+                    <td className="py-2">{row.Cuisine_type}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={3} className="py-4 text-center text-gray-500 dark:text-gray-400">
+                    No recipes found.
                   </td>
                 </tr>
               )}
@@ -166,13 +197,27 @@ export default function Filters() {
       )}
 
       {results?.type === "clusters" && (
-        <div className="mt-4 rounded-lg bg-white p-4 text-gray-900 shadow dark:bg-gray-900 dark:text-gray-100">
-          <h3 className="mb-2 text-lg font-semibold">Recipe Distribution</h3>
-          <img
-            src={`data:image/png;base64,${results.image}`}
-            alt="Recipe Distribution"
-            className="w-full rounded"
-          />
+        <div className="mt-4 rounded-lg bg-white p-4 text-gray-900 shadow dark:bg-gray-900 dark:text-gray-100 max-h-[500px] overflow-auto">
+          <h3 className="mb-4 text-lg font-semibold">Recipe Classification by Category</h3>
+
+          {Object.keys(results.data).length > 0 ? (
+            Object.entries(results.data).map(([category, items]) => (
+              <div key={category} className="mb-6">
+                <h4 className="font-semibold text-base mb-2 capitalize">
+                  Category: {category}
+                </h4>
+                <ul className="list-disc pl-6 space-y-1">
+                  {items.map((item, index) => (
+                    <li key={index}>
+                      {item.Recipe_name} ({item.Cuisine_type})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">No clusters found.</p>
+          )}
         </div>
       )}
     </section>
