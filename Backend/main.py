@@ -247,8 +247,17 @@ def list_resources(resource_group: str):
 @app.get("/debug/azure-check")
 def azure_check():
     try:
+        from importlib import import_module
         from azure.identity import AzureCliCredential
-        from azure.mgmt.resource import SubscriptionClient
+
+        # Support both older and newer azure-mgmt-resource package layouts.
+        resource_mod = import_module("azure.mgmt.resource")
+        SubscriptionClient = getattr(resource_mod, "SubscriptionClient", None)
+        if SubscriptionClient is None:
+            SubscriptionClient = getattr(
+                import_module("azure.mgmt.resource.subscriptions"),
+                "SubscriptionClient"
+            )
 
         credential = AzureCliCredential()
         client = SubscriptionClient(credential)
