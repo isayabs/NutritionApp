@@ -10,3 +10,4 @@ azure-mgmt-storage
 firebase-admin
 python-dotenv
 azure-mgmt-resource
+azure-mgmt-subscription

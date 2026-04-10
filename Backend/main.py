@@ -250,14 +250,23 @@ def azure_check():
         from importlib import import_module
         from azure.identity import AzureCliCredential
 
-        # Support both older and newer azure-mgmt-resource package layouts.
+        # Handle SDK layout differences across azure-mgmt-resource/subscription packages.
+        SubscriptionClient = None
+
         resource_mod = import_module("azure.mgmt.resource")
         SubscriptionClient = getattr(resource_mod, "SubscriptionClient", None)
+
         if SubscriptionClient is None:
-            SubscriptionClient = getattr(
-                import_module("azure.mgmt.resource.subscriptions"),
-                "SubscriptionClient"
-            )
+            try:
+                SubscriptionClient = getattr(
+                    import_module("azure.mgmt.resource.subscriptions"),
+                    "SubscriptionClient"
+                )
+            except ModuleNotFoundError:
+                SubscriptionClient = getattr(
+                    import_module("azure.mgmt.subscription"),
+                    "SubscriptionClient"
+                )
 
         credential = AzureCliCredential()
         client = SubscriptionClient(credential)
