@@ -28,7 +28,7 @@ import os
 
 SUBSCRIPTION_ID = os.getenv("AZURE_SUBSCRIPTION_ID", "fc5ffb10-fce9-45fc-907a-b5304c376a49")
 RESOURCE_GROUP = os.getenv("AZURE_RESOURCE_GROUP", "nutrition-app-rg")
-STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT", "nutritionap2025")
+STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT", "nutritionapp2025")
 
 PROTECTED_GROUPS = [RESOURCE_GROUP]
 
