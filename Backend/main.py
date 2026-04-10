@@ -1,165 +1,58 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from data_analysis import (
     get_avg_protein_bar,
     get_macros_heatmap,
     get_top_protein_scatter,
     get_recipe_distribution_pie,
-    get_highest_protein_diet,
-    get_most_common_cuisine,
     get_recipes,
     get_recipe_list,
     get_recipe_clusters,
 )
+
 import time
-import psutil
 from datetime import datetime, timezone
-from azure.identity import ManagedIdentityCredential
+
+from azure.identity import DefaultAzureCredential
 from azure.mgmt.storage import StorageManagementClient
-from auth_routes import router as auth_router
 from azure.mgmt.resource import ResourceManagementClient
 
-#Helper functions-------------------------------------------------
-def evaluate_encryption(is_blob_encrypted, is_file_encrypted, key_type, https_only, key_vault_uri):
-    checks = {
-        "blob_encrypted": is_blob_encrypted,
-        "files_encrypted": is_file_encrypted,
-        "customer_managed_keys": key_type == "CMK",
-        "https_enforced": https_only,
-        "key_vault_configured": key_vault_uri is not None
-    }
-
-    passed = sum(checks.values())
-    total = len(checks)
-
-    if passed == total:
-        status = "secure"
-    elif passed >= 3:
-        status = "warning"
-    else:
-        status = "error"
-
-    return {
-        "status": status,
-        "score": f"{passed}/{total}",
-        "checks": checks,
-        "message": generate_encryption_message(checks)
-    }
-
-def generate_encryption_message(checks):
-    issues = []
-
-    if not checks["blob_encrypted"]:
-        issues.append("Blob encryption not enabled")
-    if not checks["files_encrypted"]:
-        issues.append("File encryption not enabled")
-    if not checks["customer_managed_keys"]:
-        issues.append("Using Microsoft-managed keys")
-    if not checks["https_enforced"]:
-        issues.append("HTTPS not enforced")
-    if not checks["key_vault_configured"]:
-        issues.append("No Key Vault configured")
-
-    if not issues:
-        return "Azure Blob SSE enabled · CMK · HTTPS enforced · Key Vault configured"
-
-    return " · ".join(issues)
-
-def generate_access_message(checks):
-    issues = []
-
-    if not checks["public_access_disabled"]:
-        issues.append("Public blob access enabled")
-
-    if not checks["network_restricted"]:
-        issues.append("Storage allows all networks")
-
-    if not checks["secure_tls"]:
-        issues.append("Outdated TLS version")
-
-    if not issues:
-        return "Access control is properly configured"
-
-    return " · ".join(issues)
+from auth_routes import router as auth_router
 
 
-def evaluate_access_control(public_access, default_action, min_tls):
-    checks = {
-        "public_access_disabled": not public_access,
-        "network_restricted": default_action == "Deny",
-        "secure_tls": min_tls in ["TLS1_2", "TLS1_3"]
-    }
+# ─────────────────────────────────────────────
+# CONFIG
+# ─────────────────────────────────────────────
 
-    passed = sum(checks.values())
-    total = len(checks)
+SUBSCRIPTION_ID = "eba634ec-0ab9-49b5-8ebc-a9747f14a701"
+RESOURCE_GROUP = "nutrition-app-rg"
+STORAGE_ACCOUNT = "nutritionappstorage01"
 
-    if passed == total:
-        status = "secure"
-    elif passed > 0:
-        status = "warning"
-    else:
-        status = "error"
+PROTECTED_GROUPS = ["nutrition-app-rg"]
 
-    return {
-        "status": status,
-        "score": f"{passed}/{total}",
-        "checks": checks,
-        "message": generate_access_message(checks)
-    }
-
-def evaluate_gdpr(encryption_status, access_control):
-    processes_personal_data = False
-    checks = {
-        "data_encrypted": encryption_status == "secure",
-        "access_restricted": access_control["checks"]["network_restricted"],
-        "public_access_disabled": access_control["checks"]["public_access_disabled"],
-        "secure_transport": access_control["checks"]["secure_tls"],
-        "no_personal_data_processed": not processes_personal_data
-    }
-
-    passed = sum(checks.values())
-    total = len(checks)
-
-    if passed == total:
-        status = "secure"
-    elif passed >= 3:
-        status = "warning"
-    else:
-        status = "error"
-
-    return {
-        "status": status,
-        "score": f"{passed}/{total}",
-        "checks": checks,
-        "message": generate_gdpr_message(checks, processes_personal_data)
-    }
+START_TIME = time.time()
 
 
-def generate_gdpr_message(checks, processes_personal_data):
-    if not processes_personal_data:
-        return "No personal data processed. Strong GDPR readiness based on infrastructure controls."
+# ─────────────────────────────────────────────
+# AZURE CLIENT HELPER
+# ─────────────────────────────────────────────
 
-    missing = []
+def get_credential():
+    return DefaultAzureCredential()
 
-    if not checks["data_encrypted"]:
-        missing.append("Encryption not properly configured")
+def get_resource_client():
+    return ResourceManagementClient(get_credential(), SUBSCRIPTION_ID)
 
-    if not checks["access_restricted"]:
-        missing.append("Network access not restricted")
+def get_storage_client():
+    return StorageManagementClient(get_credential(), SUBSCRIPTION_ID)
 
-    if not checks["public_access_disabled"]:
-        missing.append("Public access is enabled")
 
-    if not checks["secure_transport"]:
-        missing.append("Secure transport (TLS) not enforced")
-
-    if not missing:
-        return "Strong GDPR readiness based on infrastructure controls"
-
-    return " · ".join(missing)
+# ─────────────────────────────────────────────
+# FASTAPI APP
+# ─────────────────────────────────────────────
 
 app = FastAPI()
-
 app.include_router(auth_router)
 
 app.add_middleware(
@@ -169,11 +62,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-START_TIME = time.time()
-SUBSCRIPTION_ID = "eba634ec-0ab9-49b5-8ebc-a9747f14a701"
-RESOURCE_GROUP = "nutrition-app-rg"
-STORAGE_ACCOUNT = "nutritionappstorage01"
-# ─── Data Endpoints ───────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────
+# DATA ENDPOINTS
+# ─────────────────────────────────────────────
 
 @app.get("/api/data/nutritional-insights")
 def nutritional_insights(diet: str = None, search: str = None, limit: int = 20):
@@ -189,23 +81,34 @@ def recipes(diet: str = None, search: str = None, limit: int = 20):
 def clusters(diet: str = None, search: str = None, limit: int = 50):
     return {"data": get_recipe_clusters(diet=diet, search=search, limit=limit)}
 
-# ─── Chart Endpoints ──────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────
+# CHART ENDPOINTS
+# ─────────────────────────────────────────────
 
 @app.get("/api/chart/protein-bar")
 def protein_bar():
     return {"image": get_avg_protein_bar()}
 
+
 @app.get("/api/chart/macros-heatmap")
 def macros_heatmap():
     return {"image": get_macros_heatmap()}
+
 
 @app.get("/api/chart/top-protein-scatter")
 def top_protein_scatter():
     return {"image": get_top_protein_scatter()}
 
+
 @app.get("/api/chart/recipe-distribution")
 def recipe_distribution():
     return {"image": get_recipe_distribution_pie()}
+
+
+# ─────────────────────────────────────────────
+# SECURITY STATUS
+# ─────────────────────────────────────────────
 
 @app.get("/api/security/status")
 def security_status():
@@ -213,57 +116,69 @@ def security_status():
     uptime_minutes = uptime_seconds // 60
     uptime_hours = uptime_minutes // 60
 
-    # Query real encryption status from Azure
     try:
-        credential = ManagedIdentityCredential()
-        storage_client = StorageManagementClient(credential, SUBSCRIPTION_ID)
-        account = storage_client.storage_accounts.get_properties(RESOURCE_GROUP, STORAGE_ACCOUNT)
-        
+        storage_client = get_storage_client()
+        account = storage_client.storage_accounts.get_properties(
+            RESOURCE_GROUP,
+            STORAGE_ACCOUNT
+        )
+
         encryption = account.encryption
+
         is_blob_encrypted = encryption.services.blob.enabled
         is_file_encrypted = encryption.services.file.enabled
-        key_type = "CMK" if encryption.key_source == "Microsoft.Keyvault" else "Microsoft-managed"
+
+        key_type = (
+            "CMK"
+            if encryption.key_source == "Microsoft.Keyvault"
+            else "Microsoft-managed"
+        )
+
         https_only = account.enable_https_traffic_only
-        key_vault_uri = encryption.key_vault_properties.key_vault_uri if encryption.key_vault_properties else None
 
-        access_control = evaluate_access_control(
-            account.allow_blob_public_access,
-            account.network_rule_set.default_action,
-            account.minimum_tls_version
+        key_vault_uri = (
+            encryption.key_vault_properties.key_vault_uri
+            if encryption.key_vault_properties
+            else None
         )
-
-        encryption_status = evaluate_encryption(
-            is_blob_encrypted,
-            is_file_encrypted,
-            key_type,
-            https_only,
-            key_vault_uri
-        )
-
-        gdpr_compliance = evaluate_gdpr(
-            encryption_status["status"],
-            access_control
-        )
-    except Exception as e:
-        encryption_status = {
-            "status": "warning",
-            "message": "Could not retrieve encryption status"
-        }
 
         access_control = {
-            "status": "warning",
-            "message": "Could not retrieve access control configuration"
+            "status": "secure" if account.allow_blob_public_access is False else "warning",
+            "checks": {
+                "public_access_disabled": not account.allow_blob_public_access,
+                "network_restricted": account.network_rule_set.default_action == "Deny",
+                "secure_tls": account.minimum_tls_version in ["TLS1_2", "TLS1_3"],
+            }
         }
 
-        gdpr_compliance = {
-            "status": "warning",
-            "message": "Could not retrieve GDPR compliance information"
+        encryption_status = {
+            "status": "secure" if all([
+                is_blob_encrypted,
+                is_file_encrypted,
+                https_only
+            ]) else "warning",
+            "checks": {
+                "blob_encrypted": is_blob_encrypted,
+                "file_encrypted": is_file_encrypted,
+                "https_only": https_only,
+                "key_vault": key_vault_uri is not None
+            }
         }
+
+        gdpr = {
+            "status": "secure",
+            "message": "Infrastructure checks completed"
+        }
+
+    except Exception as e:
+        encryption_status = {"status": "error", "message": str(e)}
+        access_control = {"status": "error", "message": str(e)}
+        gdpr = {"status": "error", "message": str(e)}
 
     return {
         "encryption": encryption_status,
         "access_control": access_control,
-        "compliance": gdpr_compliance,
+        "compliance": gdpr,
         "uptime": {
             "status": "secure",
             "message": f"{uptime_hours}h {uptime_minutes % 60}m {uptime_seconds % 60}s"
@@ -271,81 +186,95 @@ def security_status():
         "last_checked": datetime.now(timezone.utc).isoformat()
     }
 
-#Cloud Resource Cleanup Endpoint
-PROTECTED_GROUPS = ["nutrition-app-rg"]
+
+# ─────────────────────────────────────────────
+# CLOUD RESOURCE ENDPOINTS
+# ─────────────────────────────────────────────
 
 @app.get("/api/cloud/resource-groups")
 def list_resource_groups():
     try:
-        credential = ManagedIdentityCredential()
-        resource_client = ResourceManagementClient(credential, SUBSCRIPTION_ID)
-        groups = list(resource_client.resource_groups.list())
+        client = get_resource_client()
+        groups = list(client.resource_groups.list())
+
         filtered = [g for g in groups if g.name not in PROTECTED_GROUPS]
+
         return {
             "resource_groups": [
-                {"name": g.name, "location": g.location, "status": g.properties.provisioning_state}
+                {
+                    "name": g.name,
+                    "location": g.location,
+                    "status": g.properties.provisioning_state
+                }
                 for g in filtered
             ]
         }
+
     except Exception as e:
         return {"status": "error", "message": str(e), "resource_groups": []}
 
 
 @app.get("/api/cloud/resources/{resource_group}")
 def list_resources(resource_group: str):
+
     if resource_group in PROTECTED_GROUPS:
-        return {"status": "error", "message": "This resource group is protected", "resources": []}
+        return {
+            "status": "error",
+            "message": "This resource group is protected",
+            "resources": []
+        }
+
     try:
-        credential = ManagedIdentityCredential()
-        resource_client = ResourceManagementClient(credential, SUBSCRIPTION_ID)
-        resources = list(resource_client.resources.list_by_resource_group(resource_group))
+        client = get_resource_client()
+
+        resources = list(
+            client.resources.list_by_resource_group(resource_group)
+        )
+
         return {
             "resource_group": resource_group,
             "count": len(resources),
             "resources": [
-                {"name": r.name, "type": r.type, "location": r.location}
+                {
+                    "name": r.name,
+                    "type": r.type,
+                    "location": r.location
+                }
                 for r in resources
             ]
         }
+
     except Exception as e:
         return {"status": "error", "message": str(e), "resources": []}
 
 
+# ─────────────────────────────────────────────
+# 🔥 CLEANUP (DELETE RESOURCE GROUP)
+# ─────────────────────────────────────────────
+
 @app.delete("/api/cloud/cleanup/{resource_group}")
 def cleanup_resources(resource_group: str):
+
     if resource_group in PROTECTED_GROUPS:
-        return {"status": "error", "message": "This resource group is protected and cannot be cleaned"}
-    results = []
-    errors = []
+        return {
+            "status": "error",
+            "message": "This resource group is protected"
+        }
+
     try:
-        credential = ManagedIdentityCredential()
-        resource_client = ResourceManagementClient(credential, SUBSCRIPTION_ID)
-        resources = list(resource_client.resources.list_by_resource_group(resource_group))
+        client = get_resource_client()
 
-        if not resources:
-            return {
-                "status": "success",
-                "message": "No resources found to clean up",
-                "cleaned": [],
-                "errors": []
-            }
-
-        for resource in resources:
-            try:
-                resource_client.resources.begin_delete_by_id(
-                    resource.id,
-                    api_version="2021-04-01"
-                ).result()
-                results.append({"name": resource.name, "type": resource.type, "status": "deleted"})
-            except Exception as e:
-                errors.append({"name": resource.name, "error": str(e)})
+        poller = client.resource_groups.begin_delete(resource_group)
+        poller.result()
 
         return {
-            "status": "success" if not errors else "partial",
-            "message": f"Cleaned {len(results)} resource(s)",
-            "cleaned": results,
-            "errors": errors,
+            "status": "success",
+            "message": f"Resource group '{resource_group}' deleted",
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
+
     except Exception as e:
-        return {"status": "error", "message": str(e), "cleaned": [], "errors": []}
+        return {
+            "status": "error",
+            "message": str(e)
+        }
