@@ -15,7 +15,7 @@ from data_analysis import (
 import time
 from datetime import datetime, timezone
 
-from azure.identity import AzureCliCredential
+from azure.identity import DefaultAzureCredential
 from azure.mgmt.storage import StorageManagementClient
 from azure.mgmt.resource import ResourceManagementClient
 from auth_routes import router as auth_router
@@ -40,7 +40,7 @@ START_TIME = time.time()
 # ─────────────────────────────────────────────
 
 def get_credential():
-    return AzureCliCredential()
+    return DefaultAzureCredential()
 
 def get_resource_client():
     return ResourceManagementClient(get_credential(), SUBSCRIPTION_ID)
