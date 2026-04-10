@@ -1,15 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://40.76.254.32:8000";
-
 function ChartImage({ endpoint, title }) {
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_URL}${endpoint}`)
+    fetch(endpoint)
       .then(res => res.json())
       .then(json => { setImage(json.image); setLoading(false); })
       .catch(() => { setError("Failed to load"); setLoading(false); });

@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 
-const API = "http://40.76.254.32:8000";
-
 export default function CloudCleanup() {
   const [resourceGroups, setResourceGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState("");
@@ -17,7 +15,7 @@ export default function CloudCleanup() {
 
   // Load resource groups on mount
   useEffect(() => {
-    fetch(`${API}/api/cloud/resource-groups`)
+    fetch("/api/cloud/resource-groups")
       .then((res) => res.json())
       .then((data) => {
         setResourceGroups(data.resource_groups || []);
@@ -38,7 +36,7 @@ export default function CloudCleanup() {
     setLoadingResources(true);
     setResult(null);
     setError(null);
-    fetch(`${API}/api/cloud/resources/${selectedGroup}`)
+    fetch(`/api/cloud/resources/${selectedGroup}`)
       .then((res) => res.json())
       .then((data) => {
         setResources(data.resources || []);
@@ -56,7 +54,7 @@ export default function CloudCleanup() {
     setResult(null);
     setError(null);
     try {
-      const res = await fetch(`${API}/api/cloud/cleanup/${selectedGroup}`, {
+      const res = await fetch(`/api/cloud/cleanup/${selectedGroup}`, {
         method: "DELETE",
       });
       const data = await res.json();

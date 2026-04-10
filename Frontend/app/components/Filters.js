@@ -2,8 +2,6 @@
 "use client";
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://40.76.254.32:8000";
-
 export default function Filters() {
   const [diet, setDiet] = useState("All Diet Types");
   const [search, setSearch] = useState("");
@@ -22,7 +20,7 @@ export default function Filters() {
   const handleGetInsights = () => {
     setLoading(true);
     setResults(null);
-    fetch(`${API_URL}/api/data/nutritional-insights${buildQuery(20)}`)
+    fetch(`/api/data/nutritional-insights${buildQuery(20)}`)
       .then((res) => res.json())
       .then((json) => {
         setResults({ type: "insights", data: json.data || [] });
@@ -37,7 +35,7 @@ export default function Filters() {
   const handleGetRecipes = () => {
     setLoading(true);
     setResults(null);
-    fetch(`${API_URL}/api/data/recipes${buildQuery(20)}`)
+    fetch(`/api/data/recipes${buildQuery(20)}`)
       .then((res) => res.json())
       .then((json) => {
         setResults({ type: "recipes", data: json.data || [] });
@@ -52,7 +50,7 @@ export default function Filters() {
   const handleGetClusters = () => {
     setLoading(true);
     setResults(null);
-    fetch(`${API_URL}/api/data/clusters${buildQuery(50)}`)
+    fetch(`/api/data/clusters${buildQuery(50)}`)
       .then((res) => res.json())
       .then((json) => {
         setResults({ type: "clusters", data: json.data || {} });

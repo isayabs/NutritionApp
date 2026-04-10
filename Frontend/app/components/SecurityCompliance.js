@@ -1,8 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://40.76.254.32:8000";
-
 const StatusBadge = ({ status, message }) => {
   const colors = {
     secure: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
@@ -37,7 +35,7 @@ export default function SecurityCompliance() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/security/status`);
+      const res = await fetch("/api/security/status");
       const json = await res.json();
       setData(json);
       setLastRefresh(new Date().toLocaleTimeString());

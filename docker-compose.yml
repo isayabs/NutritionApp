@@ -13,11 +13,9 @@ services:
   frontend:
     build:
       context: ./Frontend
-      args:
-        NEXT_PUBLIC_API_URL: http://40.76.254.32:8000
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://40.76.254.32:8000
+      - BACKEND_ORIGIN=http://backend:8000
     depends_on:
       - backend
