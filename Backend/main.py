@@ -15,25 +15,22 @@ from data_analysis import (
 import time
 from datetime import datetime, timezone
 
-from azure.identity import DefaultAzureCredential
+from azure.identity import AzureCliCredential
 from azure.mgmt.storage import StorageManagementClient
 from azure.mgmt.resource import ResourceManagementClient
-
 from auth_routes import router as auth_router
 import os
+
 
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
 
-SUBSCRIPTION_ID = os.getenv("AZURE_SUBSCRIPTION_ID")
-RESOURCE_GROUP = os.getenv("AZURE_RESOURCE_GROUP")
-STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT")
-print("SUBSCRIPTION_ID:", SUBSCRIPTION_ID)
-print("RESOURCE_GROUP:", RESOURCE_GROUP)
-print("STORAGE_ACCOUNT:", STORAGE_ACCOUNT)
+SUBSCRIPTION_ID = os.getenv("AZURE_SUBSCRIPTION_ID", "fc5ffb10-fce9-45fc-907a-b5304c376a49")
+RESOURCE_GROUP = os.getenv("AZURE_RESOURCE_GROUP", "nutrition-app-rg")
+STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT", "nutritionap2025")
 
-PROTECTED_GROUPS = ["nutrition-app-rg"]
+PROTECTED_GROUPS = [RESOURCE_GROUP]
 
 START_TIME = time.time()
 
@@ -43,7 +40,7 @@ START_TIME = time.time()
 # ─────────────────────────────────────────────
 
 def get_credential():
-    return DefaultAzureCredential()
+    return AzureCliCredential()
 
 def get_resource_client():
     return ResourceManagementClient(get_credential(), SUBSCRIPTION_ID)
@@ -61,7 +58,7 @@ app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://40.76.254.32:3000"],
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -197,25 +194,21 @@ def security_status():
 
 @app.get("/api/cloud/resource-groups")
 def list_resource_groups():
-    try:
-        client = get_resource_client()
-        groups = list(client.resource_groups.list())
+    client = get_resource_client()
 
-        filtered = [g for g in groups if g.name not in PROTECTED_GROUPS]
+    groups = list(client.resource_groups.list())
 
-        return {
-            "resource_groups": [
-                {
-                    "name": g.name,
-                    "location": g.location,
-                    "status": g.properties.provisioning_state
-                }
-                for g in filtered
-            ]
-        }
-
-    except Exception as e:
-        return {"status": "error", "message": str(e), "resource_groups": []}
+    return {
+        "debug_count": len(groups),
+        "resource_groups": [
+            {
+                "name": g.name,
+                "location": g.location,
+                "status": g.properties.provisioning_state
+            }
+            for g in groups
+        ]
+    }
 
 
 @app.get("/api/cloud/resources/{resource_group}")
@@ -251,7 +244,20 @@ def list_resources(resource_group: str):
     except Exception as e:
         return {"status": "error", "message": str(e), "resources": []}
 
+@app.get("/debug/azure-check")
+def azure_check():
+    from azure.identity import DefaultAzureCredential
+    from azure.mgmt.subscription import SubscriptionClient
 
+    cred = DefaultAzureCredential()
+    sub_client = SubscriptionClient(cred)
+
+    subs = list(sub_client.subscriptions.list())
+
+    return {
+        "subscriptions_found": len(subs),
+        "first_sub": subs[0].subscription_id if subs else None
+    }
 # ─────────────────────────────────────────────
 # 🔥 CLEANUP (DELETE RESOURCE GROUP)
 # ─────────────────────────────────────────────
@@ -269,13 +275,14 @@ def cleanup_resources(resource_group: str):
         client = get_resource_client()
 
         poller = client.resource_groups.begin_delete(resource_group)
-        poller.result()
-
         return {
             "status": "success",
-            "message": f"Resource group '{resource_group}' deleted",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "message": f"Deletion started for '{resource_group}'",
         }
-
+    
     except Exception as e:
         print(traceback.format_exc())
+        return {
+            "status": "error",
+            "message": str(e)
+        }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = "http://40.76.254.32:8000";
 
 export default function CloudCleanup() {
   const [resourceGroups, setResourceGroups] = useState([]);
