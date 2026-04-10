@@ -246,18 +246,26 @@ def list_resources(resource_group: str):
 
 @app.get("/debug/azure-check")
 def azure_check():
-    from azure.identity import DefaultAzureCredential
-    from azure.mgmt.subscription import SubscriptionClient
+    try:
+        from azure.identity import AzureCliCredential
+        from azure.mgmt.resource import SubscriptionClient
 
-    cred = DefaultAzureCredential()
-    sub_client = SubscriptionClient(cred)
+        credential = AzureCliCredential()
+        client = SubscriptionClient(credential)
 
-    subs = list(sub_client.subscriptions.list())
+        subs = list(client.subscriptions.list())
 
-    return {
-        "subscriptions_found": len(subs),
-        "first_sub": subs[0].subscription_id if subs else None
-    }
+        return {
+            "status": "success",
+            "subscriptions_found": len(subs),
+            "first_sub": subs[0].subscription_id if subs else None
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 # ─────────────────────────────────────────────
 # 🔥 CLEANUP (DELETE RESOURCE GROUP)
 # ─────────────────────────────────────────────
