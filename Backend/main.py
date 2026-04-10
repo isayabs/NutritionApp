@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from azure.identity import ManagedIdentityCredential
 from azure.mgmt.storage import StorageManagementClient
 from auth_routes import router as auth_router
+from azure.mgmt.resource import ResourceManagementClient
 
 #Helper functions-------------------------------------------------
 def evaluate_encryption(is_blob_encrypted, is_file_encrypted, key_type, https_only, key_vault_uri):
@@ -163,7 +164,7 @@ app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://4.206.200.150:3000"],
+    allow_origins=["http://localhost:3000", "http://40.76.254.32:3000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -269,3 +270,82 @@ def security_status():
         },
         "last_checked": datetime.now(timezone.utc).isoformat()
     }
+
+#Cloud Resource Cleanup Endpoint
+PROTECTED_GROUPS = ["nutrition-app-rg"]
+
+@app.get("/api/cloud/resource-groups")
+def list_resource_groups():
+    try:
+        credential = ManagedIdentityCredential()
+        resource_client = ResourceManagementClient(credential, SUBSCRIPTION_ID)
+        groups = list(resource_client.resource_groups.list())
+        filtered = [g for g in groups if g.name not in PROTECTED_GROUPS]
+        return {
+            "resource_groups": [
+                {"name": g.name, "location": g.location, "status": g.properties.provisioning_state}
+                for g in filtered
+            ]
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "resource_groups": []}
+
+
+@app.get("/api/cloud/resources/{resource_group}")
+def list_resources(resource_group: str):
+    if resource_group in PROTECTED_GROUPS:
+        return {"status": "error", "message": "This resource group is protected", "resources": []}
+    try:
+        credential = ManagedIdentityCredential()
+        resource_client = ResourceManagementClient(credential, SUBSCRIPTION_ID)
+        resources = list(resource_client.resources.list_by_resource_group(resource_group))
+        return {
+            "resource_group": resource_group,
+            "count": len(resources),
+            "resources": [
+                {"name": r.name, "type": r.type, "location": r.location}
+                for r in resources
+            ]
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "resources": []}
+
+
+@app.delete("/api/cloud/cleanup/{resource_group}")
+def cleanup_resources(resource_group: str):
+    if resource_group in PROTECTED_GROUPS:
+        return {"status": "error", "message": "This resource group is protected and cannot be cleaned"}
+    results = []
+    errors = []
+    try:
+        credential = ManagedIdentityCredential()
+        resource_client = ResourceManagementClient(credential, SUBSCRIPTION_ID)
+        resources = list(resource_client.resources.list_by_resource_group(resource_group))
+
+        if not resources:
+            return {
+                "status": "success",
+                "message": "No resources found to clean up",
+                "cleaned": [],
+                "errors": []
+            }
+
+        for resource in resources:
+            try:
+                resource_client.resources.begin_delete_by_id(
+                    resource.id,
+                    api_version="2021-04-01"
+                ).result()
+                results.append({"name": resource.name, "type": resource.type, "status": "deleted"})
+            except Exception as e:
+                errors.append({"name": resource.name, "error": str(e)})
+
+        return {
+            "status": "success" if not errors else "partial",
+            "message": f"Cleaned {len(results)} resource(s)",
+            "cleaned": results,
+            "errors": errors,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "cleaned": [], "errors": []}
