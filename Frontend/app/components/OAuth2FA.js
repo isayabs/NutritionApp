@@ -4,6 +4,8 @@ import { useState } from "react";
 import { signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider, githubProvider } from "../../_utils/firebase";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://40.76.254.32:8000";
+
 export default function OAuth2FA() {
   const [user, setUser] = useState(null);
   const [twoFACode, setTwoFACode] = useState("");
@@ -17,7 +19,7 @@ export default function OAuth2FA() {
   const sendOtpToBackend = async (firebaseUser) => {
     const token = await firebaseUser.getIdToken();
 
-    const response = await fetch("http://localhost:8000/auth/send-otp", {
+    const response = await fetch(`${API_URL}/auth/send-otp`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -75,7 +77,7 @@ export default function OAuth2FA() {
 
       const token = await user.getIdToken();
 
-      const response = await fetch("http://localhost:8000/auth/verify-otp", {
+      const response = await fetch(`${API_URL}/auth/verify-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

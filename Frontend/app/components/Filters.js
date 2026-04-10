@@ -2,7 +2,7 @@
 "use client";
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://40.76.254.32:8000";
 
 export default function Filters() {
   const [diet, setDiet] = useState("All Diet Types");

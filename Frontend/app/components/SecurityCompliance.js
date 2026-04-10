@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://4.206.200.150:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://40.76.254.32:8000";
 
 const StatusBadge = ({ status, message }) => {
   const colors = {
