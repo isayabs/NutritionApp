@@ -7,5 +7,6 @@ psutil
 azure-storage-blob
 azure-identity
 azure-mgmt-storage
-firebae-admin
+firebase-admin
 python-dotenv
+azure-mgmt-resource
