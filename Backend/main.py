@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import traceback
 
 from data_analysis import (
     get_avg_protein_bar,
@@ -19,15 +20,18 @@ from azure.mgmt.storage import StorageManagementClient
 from azure.mgmt.resource import ResourceManagementClient
 
 from auth_routes import router as auth_router
-
+import os
 
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
 
-SUBSCRIPTION_ID = "eba634ec-0ab9-49b5-8ebc-a9747f14a701"
-RESOURCE_GROUP = "nutrition-app-rg"
-STORAGE_ACCOUNT = "nutritionappstorage01"
+SUBSCRIPTION_ID = os.getenv("AZURE_SUBSCRIPTION_ID")
+RESOURCE_GROUP = os.getenv("AZURE_RESOURCE_GROUP")
+STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT")
+print("SUBSCRIPTION_ID:", SUBSCRIPTION_ID)
+print("RESOURCE_GROUP:", RESOURCE_GROUP)
+print("STORAGE_ACCOUNT:", STORAGE_ACCOUNT)
 
 PROTECTED_GROUPS = ["nutrition-app-rg"]
 
@@ -274,7 +278,4 @@ def cleanup_resources(resource_group: str):
         }
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        print(traceback.format_exc())
